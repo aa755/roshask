@@ -9,3 +9,4 @@ dist_roshask
 /Examples/PubSub/bin/
 /Examples/Turtle/bin/
 /vagrant/ssh/
+/.dist-buildwrapper/

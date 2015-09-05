@@ -81,8 +81,11 @@ mkPubAux trep t runServer' bufferSize =
        return $ Publication known trep port cleanup' (DynTopic t) stats
 
 -- |Subscribe to the given Topic. Returns a 'Ros.TopicUtil.share'd 'Topic'.
-subscribe :: (RosBinary a, MsgInfo a, Typeable a) => 
-             TopicName -> Node (Topic IO a)
+subscribe :: (RosBinary a, MsgInfo a, Typeable a) -- typeclass constraints
+  => TopicName -> Node (Topic IO a) 
+-- under the node monad which stores node subscription info, e.t.c, this returns
+-- a stateful (IOful) stream of a's.
+
 subscribe name = do n <- get
                     name' <- canonicalizeName =<< remapName name
                     r <- nodeAppConfig <$> ask

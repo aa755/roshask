@@ -16,6 +16,9 @@ import Control.Monad.IO.Class
 
 -- |A Topic is an infinite stream of values that steps between values
 -- in a 'Monad'.
+-- Topic m is coinductively defined as just : 
+-- m (a * Topic m a)
+-- m is supposed to be a monad, like IO (see subscribe)
 newtype Topic m a = Topic { runTopic :: m (a, Topic m a) }
 
 instance Functor m => Functor (Topic m) where

@@ -52,6 +52,10 @@ data NodeConfig = NodeConfig { nodeParams :: Params
                              , nodeRemaps :: Remap
                              , nodeAppConfig :: ConfigOptions }
 
+-- | StateT is a monad transformer which adds a state monad over any existing monad
+-- In general, monad names starting with T are transformers.
+-- | newtype ReaderT r m a :: * -> (* -> *) -> * -> *
+-- NodeConfig is the environment type the reader reads, NodeState is thestate carried while doing IO
 -- |A 'Node' carries with it parameters, topic remappings, and some
 -- state encoding the status of its subscriptions and publications.
 newtype Node a = Node { unNode :: ReaderT NodeConfig (StateT NodeState IO) a }
