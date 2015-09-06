@@ -66,6 +66,18 @@ filter p = metamorph go
 --         aux (x, t') | p x       = return (x, go t')
 --                     | otherwise = runTopic $ go t'
 
+
+mapEitherL :: Monad m => (a->c) -> Topic m (Either a b) -> Topic m c
+mapEitherL f = metamorph go
+  where go (Left x) = yield (f x) go
+        go (Right _) =  skip go
+
+mapEitherR :: Monad m => (b->c) -> Topic m (Either a b) -> Topic m c
+mapEitherR f = metamorph go
+  where go (Right x) = yield (f x) go
+        go (Left _) =  skip go
+
+
 -- |@take n t@ returns the prefix of @t@ of length @n@.
 take :: Monad m => Int -> Topic m a -> m [a]
 take = aux []
