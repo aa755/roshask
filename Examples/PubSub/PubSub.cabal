@@ -25,3 +25,15 @@ Executable listener
   GHC-Options:    -Odph -main-is Listener
   Main-Is:        Listener.hs
   Hs-Source-Dirs: src
+
+
+Executable echo2
+  Build-Depends:  base             >= 4.2 && < 6
+                , vector           >= 0.7
+                , time             >= 1.1
+                , roshask          >= 0.3
+                , lens-family-core >= 1.2
+                , ROS-std-msgs
+  GHC-Options:    -Odph -main-is Echo2
+  Main-Is:        Echo2.hs
+  Hs-Source-Dirs: src
