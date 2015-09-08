@@ -63,6 +63,7 @@ Library
   -- Modules exported by the library.
   Exposed-modules:     Ros.Node
                        Ros.Topic
+                       Ros.ROSCoqUtil
                        Ros.Topic.Util
                        Ros.Topic.PID
                        Ros.Topic.Transformers
