@@ -16,4 +16,10 @@ documentation for information on message types).
 See [the wiki](http://github.com/acowley/roshask/wiki) for more information on
 getting started.
 
+On Ubuntu 15.04, the following worked for installation:
+````sudo apt-get install haskell-platform libcrypto++-dev libssl-dev````
+and then 
+````cabal install````
+
+
 [![Build Status](https://travis-ci.org/acowley/roshask.png)](https://travis-ci.org/acowley/roshask)
