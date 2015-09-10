@@ -58,3 +58,14 @@ Executable echo2
   GHC-Options:    -Odph -main-is Echo2
   Main-Is:        Echo2.hs
   Hs-Source-Dirs: src
+
+Executable echo2List
+  Build-Depends:  base             >= 4.2 && < 6
+                , vector           >= 0.7
+                , time             >= 1.1
+                , roshask          >= 0.3
+                , lens-family-core >= 1.2
+                , ROS-std-msgs
+  GHC-Options:    -Odph -main-is Echo2List
+  Main-Is:        Echo2List.hs
+  Hs-Source-Dirs: src

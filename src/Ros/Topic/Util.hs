@@ -31,6 +31,13 @@ fromList :: Monad m => [a] -> Topic m a
 fromList (x:xs) = Topic $ return (x, fromList xs)
 fromList [] = error "Ran out of list elements"
 
+asapMerge :: [a] ->  [a] -> IO [a]
+asapMerge t1 t2 =  do
+                         c <- newChan
+                         _ <- forkIO $ writeList2Chan c t1
+                         _ <- forkIO $ writeList2Chan c t2
+                         getChanContents c
+
 -- |Tee a 'Topic' into two duplicate 'Topic's. Each returned 'Topic'
 -- will receive all the values of the original 'Topic' while any
 -- side-effect produced by each step of the original 'Topic' will
