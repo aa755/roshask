@@ -4,16 +4,26 @@
 -- via extraction.
 
 
-module Ros.ROSCoqUtil (nbind, nreturn, toListN, publishCoList , subscribeCoList) where
+module Ros.ROSCoqUtil (nbind, nreturn, toListN, publishCoList, subscribeCoList, asapMergeCoList, advertiseNewChan, publishMsgOnChan, publishDelayedMsgOnChan) where
 import Ros.Topic.Util (fromList, toList)
 import Ros.Node
 import Ros.Internal.RosBinary (RosBinary)
 import Ros.Internal.Msg.MsgInfo
 import Data.Typeable.Internal
+import Control.Concurrent
 
 nreturn::a  -> Node a
 nreturn x = return x
 
+asapMerge :: [a] ->  [a] -> IO [a]
+asapMerge t1 t2 =  do
+                         c <- newChan
+                         _ <- forkIO $ writeList2Chan c t1
+                         _ <- forkIO $ writeList2Chan c t2
+                         getChanContents c
+
+asapMergeCoList :: [a] ->  [a] -> Node [a]
+asapMergeCoList t1 t2 =  liftIO (asapMerge t1 t2)
 
 toListN :: Topic IO a -> Node [a]
 toListN t = liftIO (toList t)
@@ -34,5 +44,21 @@ subscribeCoList s =
 publishCoList::(RosBinary a, MsgInfo a, Typeable a) => TopicName -> [a] -> Node ()
 publishCoList s l = advertise s (fromList l)
 
+-- |advertise a new channel for publishing on a given topic. one can write messages 
+-- to the returned channel to publish them. This provides a way to avoid using the
+-- stream passing style when it seems cumbersome.
+advertiseNewChan ::(RosBinary a, MsgInfo a, Typeable a) => TopicName -> Node (Chan a)
+advertiseNewChan name = do
+                         c <- liftIO newChan
+                         cc <- liftIO $ getChanContents c
+                         _ <- publishCoList name cc
+                         return c
 
+publishMsgOnChan::(Chan a) -> a -> Node ()
+publishMsgOnChan c m = liftIO $ writeChan c m
 
+-- | The documentation of threadDelay says that it works only for GHC. 
+publishDelayedMsgOnChan::Int -> (Chan a) -> a -> Node ()
+publishDelayedMsgOnChan micros c m = do
+     _ <- liftIO $ threadDelay micros
+     publishMsgOnChan c m
