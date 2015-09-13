@@ -4,7 +4,7 @@
 -- via extraction.
 
 
-module Ros.ROSCoqUtil (nbind, nreturn, toListN, publishCoList, subscribeCoList, asapMergeCoList, advertiseNewChan, publishMsgOnChan, publishDelayedMsgOnChan) where
+module Ros.ROSCoqUtil (nbind, nreturn, publishCoList, subscribeCoList, asapMergeCoList, advertiseNewChan, publishMsgOnChan, publishDelayedMsgOnChan, coFoldLeft) where
 import Ros.Topic.Util (fromList, toList)
 import Ros.Node
 import Ros.Internal.RosBinary (RosBinary)
@@ -58,7 +58,13 @@ publishMsgOnChan::(Chan a) -> a -> Node ()
 publishMsgOnChan c m = liftIO $ writeChan c m
 
 -- | The documentation of threadDelay says that it works only for GHC. 
-publishDelayedMsgOnChan::Int -> (Chan a) -> a -> Node ()
+publishDelayedMsgOnChan::Int -> (Control.Concurrent.Chan a) -> a -> Node ()
 publishDelayedMsgOnChan micros c m = do
      _ <- liftIO $ threadDelay micros
      publishMsgOnChan c m
+
+coFoldLeft::(a-> b ->Node a)-> [b] -> a -> Node a
+coFoldLeft _ [] inita = return inita
+coFoldLeft f (h:tl) inita = do
+    ha <- (f inita h)
+    coFoldLeft f tl ha
