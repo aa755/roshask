@@ -4,7 +4,7 @@
 -- via extraction.
 
 
-module Ros.ROSCoqUtil (nbind, nreturn, publishCoList, subscribeCoList, asapMergeCoList, advertiseNewChan, publishMsgOnChan, publishDelayedMsgOnChan, coFoldLeft) where
+module Ros.ROSCoqUtil (nbind, nreturn, publishCoList, subscribeCoList, asapMergeCoList, advertiseNewChan, publishMsgOnChan, publishDelayedMsgOnChan, coFoldLeft, flattenTL) where
 import Ros.Topic.Util (fromList, toList)
 import Ros.Node
 import Ros.Internal.RosBinary (RosBinary)
@@ -15,18 +15,28 @@ import Control.Concurrent
 nreturn::a  -> Node a
 nreturn x = return x
 
-asapMerge :: [a] ->  [a] -> IO [a]
-asapMerge t1 t2 =  do
+asapMergeL :: [a] ->  [a] -> IO [a]
+asapMergeL t1 t2 =  do
                          c <- newChan
                          _ <- forkIO $ writeList2Chan c t1
                          _ <- forkIO $ writeList2Chan c t2
                          getChanContents c
 
 asapMergeCoList :: [a] ->  [a] -> Node [a]
-asapMergeCoList t1 t2 =  liftIO (asapMerge t1 t2)
+asapMergeCoList t1 t2 =  liftIO (asapMergeL t1 t2)
 
 toListN :: Topic IO a -> Node [a]
 toListN t = liftIO (toList t)
+
+
+lcons :: Monad m => [a] -> Topic m a -> m (a, Topic m a)
+lcons [] t = runTopic t
+lcons (h:tl) t = return (h, Topic (lcons tl t))
+
+flattenTL :: Topic IO [a] -> Topic IO a
+flattenTL t = Topic $ do 
+    (x, t') <- runTopic t
+    lcons x (flattenTL t')     
 
 nbind:: Node a -> (a -> Node b) -> Node b
 nbind x f =  x >>= f
