@@ -4,7 +4,7 @@
 -- via extraction.
 
 
-module Ros.ROSCoqUtil (nbind, nreturn, toListN, publishCoList, subscribeCoList, asapMergeCoList, advertiseNewChan, publishMsgOnChan, publishDelayedMsgOnChan) where
+module Ros.ROSCoqUtil (nbind, nreturn, publishCoList, subscribeCoList, asapMergeCoList, advertiseNewChan, publishMsgOnChan, publishDelayedMsgOnChan, coFoldLeft) where
 import Ros.Topic.Util (fromList, toList)
 import Ros.Node
 import Ros.Internal.RosBinary (RosBinary)
@@ -50,15 +50,35 @@ publishCoList s l = advertise s (fromList l)
 advertiseNewChan ::(RosBinary a, MsgInfo a, Typeable a) => TopicName -> Node (Chan a)
 advertiseNewChan name = do
                          c <- liftIO newChan
-                         cc <- liftIO $ getChanContents c
-                         _ <- publishCoList name cc
+                         let aux = do x <- readChan c
+                                      return  (x, Topic aux)
+                         _ <- advertise name $ Topic aux
                          return c
 
+publishMsgOnChanAux::(Chan a) -> a -> IO ()
+publishMsgOnChanAux c m = do
+	_ <- forkIO (writeChan c m)
+	return ()
+
 publishMsgOnChan::(Chan a) -> a -> Node ()
-publishMsgOnChan c m = liftIO $ writeChan c m
+publishMsgOnChan c m = liftIO (publishMsgOnChanAux c m)
 
 -- | The documentation of threadDelay says that it works only for GHC. 
-publishDelayedMsgOnChan::Int -> (Chan a) -> a -> Node ()
-publishDelayedMsgOnChan micros c m = do
+publishDelayedMsgOnChanAux::Int -> (Control.Concurrent.Chan a) -> a -> Node ()
+publishDelayedMsgOnChanAux micros c m = do
      _ <- liftIO $ threadDelay micros
      publishMsgOnChan c m
+
+-- | FIX!! either maked the delay bounded in the Coq type signature, or using a loop
+-- properly handle the case when the first argument is beyond the bounds of Int
+publishDelayedMsgOnChan::Prelude.Integer -> (Control.Concurrent.Chan a) -> a -> Node ()
+publishDelayedMsgOnChan micros c m = 
+     publishDelayedMsgOnChanAux (Prelude.fromInteger micros) c m
+     
+
+
+coFoldLeft::(a-> b ->Node a)-> [b] -> a -> Node a
+coFoldLeft _ [] inita = return inita
+coFoldLeft f (h:tl) inita = do
+    ha <- (f inita h)
+    coFoldLeft f tl ha
