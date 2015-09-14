@@ -63,11 +63,16 @@ publishMsgOnChanAux c m = do
 publishMsgOnChan::(Chan a) -> a -> Node ()
 publishMsgOnChan c m = liftIO (publishMsgOnChanAux c m)
 
+fforkIO :: IO () -> IO ()
+fforkIO x = do
+   _ <- forkIO x
+   return ()
+
 -- | The documentation of threadDelay says that it works only for GHC. 
 publishDelayedMsgOnChanAux::Int -> (Control.Concurrent.Chan a) -> a -> Node ()
-publishDelayedMsgOnChanAux micros c m = do
-     _ <- liftIO $ threadDelay micros
-     publishMsgOnChan c m
+publishDelayedMsgOnChanAux micros c m = liftIO $ fforkIO $ do
+      _ <- threadDelay micros
+      publishMsgOnChanAux c m
 
 -- | FIX!! either maked the delay bounded in the Coq type signature, or using a loop
 -- properly handle the case when the first argument is beyond the bounds of Int
