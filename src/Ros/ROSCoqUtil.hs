@@ -58,10 +58,18 @@ publishMsgOnChan::(Chan a) -> a -> Node ()
 publishMsgOnChan c m = liftIO $ writeChan c m
 
 -- | The documentation of threadDelay says that it works only for GHC. 
-publishDelayedMsgOnChan::Int -> (Control.Concurrent.Chan a) -> a -> Node ()
-publishDelayedMsgOnChan micros c m = do
+publishDelayedMsgOnChanAux::Int -> (Control.Concurrent.Chan a) -> a -> Node ()
+publishDelayedMsgOnChanAux micros c m = do
      _ <- liftIO $ threadDelay micros
      publishMsgOnChan c m
+
+-- | FIX!! either maked the delay bounded in the Coq type signature, or using a loop
+-- properly handle the case when the first argument is beyond the bounds of Int
+publishDelayedMsgOnChan::Prelude.Integer -> (Control.Concurrent.Chan a) -> a -> Node ()
+publishDelayedMsgOnChan micros c m = 
+     publishDelayedMsgOnChanAux (Prelude.fromInteger micros) c m
+     
+
 
 coFoldLeft::(a-> b ->Node a)-> [b] -> a -> Node a
 coFoldLeft _ [] inita = return inita
