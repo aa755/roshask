@@ -4,13 +4,14 @@
 -- via extraction.
 
 
-module Ros.ROSCoqUtil (nbind, nreturn, publishCoList, subscribeCoList, asapMergeCoList, advertiseNewChan, publishMsgOnChan, publishDelayedMsgOnChan, coFoldLeft, flattenTL) where
+module Ros.ROSCoqUtil (nbind, nreturn, publishCoList, subscribeCoList, asapMergeCoList, advertiseNewChan, publishMsgOnChan, publishDelayedMsgOnChan, coFoldLeft, flattenTL, foldMapL) where
 import Ros.Topic.Util (fromList, toList)
 import Ros.Node
 import Ros.Internal.RosBinary (RosBinary)
 import Ros.Internal.Msg.MsgInfo
 import Data.Typeable.Internal
 import Control.Concurrent
+import Ros.Topic(metamorph, yield)
 
 nreturn::a  -> Node a
 nreturn x = return x
@@ -38,6 +39,11 @@ flattenTL t = Topic $ do
     (x, t') <- runTopic t
     lcons x (flattenTL t')     
 
+
+foldMapL :: Monad m => s -> (s -> a -> (b , s)) -> Topic m a -> Topic m b
+foldMapL inits f = metamorph $ go inits
+  where go cs xa = let (r, ns) = f cs xa in Ros.Topic.yield  r (go ns)
+        
 nbind:: Node a -> (a -> Node b) -> Node b
 nbind x f =  x >>= f
 
