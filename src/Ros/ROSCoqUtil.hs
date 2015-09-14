@@ -50,12 +50,18 @@ publishCoList s l = advertise s (fromList l)
 advertiseNewChan ::(RosBinary a, MsgInfo a, Typeable a) => TopicName -> Node (Chan a)
 advertiseNewChan name = do
                          c <- liftIO newChan
-                         cc <- liftIO $ getChanContents c
-                         _ <- publishCoList name cc
+                         let aux = do x <- readChan c
+                                      return  (x, Topic aux)
+                         _ <- advertise name $ Topic aux
                          return c
 
+publishMsgOnChanAux::(Chan a) -> a -> IO ()
+publishMsgOnChanAux c m = do
+	_ <- forkIO (writeChan c m)
+	return ()
+
 publishMsgOnChan::(Chan a) -> a -> Node ()
-publishMsgOnChan c m = liftIO $ writeChan c m
+publishMsgOnChan c m = liftIO (publishMsgOnChanAux c m)
 
 -- | The documentation of threadDelay says that it works only for GHC. 
 publishDelayedMsgOnChanAux::Int -> (Control.Concurrent.Chan a) -> a -> Node ()
