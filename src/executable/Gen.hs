@@ -1,6 +1,6 @@
 -- |Generate Haskell source files for ROS .msg types.
 {-# LANGUAGE OverloadedStrings #-}
-module Gen (generateMsgType, generateSrvTypes) where
+module Gen (generateMsgType, generateSrvTypes, generateCoqMsgType) where
 import Control.Applicative ((<$>), (<*>))
 import Data.ByteString.Char8 (pack, ByteString)
 import qualified Data.ByteString.Char8 as B
@@ -96,7 +96,7 @@ generateMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=pkgP
 
 generateCoqMsgType :: ByteString -> [ByteString] -> Msg -> MsgInfo ByteString
 generateCoqMsgType pkgPath pkgMsgs =
-  generateMsgTypeExtraImport GenArgs {genExtraImport=""
+  generateCoqMsgTypeExtraImport GenArgs {genExtraImport=""
                                      , genPkgPath=pkgPath
                                      , genPkgMsgs=pkgMsgs}
 

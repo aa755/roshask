@@ -16,7 +16,7 @@ import Data.Char (isSpace)
 import qualified Data.Foldable as F
 import Data.List (intercalate, isSuffixOf, isPrefixOf, nub)
 import Data.Version (versionBranch)
-import Gen (generateMsgType, generateSrvTypes)
+import Gen (generateMsgType, generateSrvTypes, generateCoqMsgType)
 import Parse (parseMsg, parseSrv)
 import Types (requestResponseNames, shortName)
 import Paths_roshask (version, getBinDir)
@@ -128,6 +128,9 @@ parseErrorHelper srvOrMsg pkgHier fileName =
 dirAndNameToFile :: FilePath -> String -> FilePath
 dirAndNameToFile destDir = (destDir </>) . (++ ".hs")
 
+dirAndNameToCoqFile :: FilePath -> String -> FilePath
+dirAndNameToCoqFile destDir = (destDir </>) . (++ ".v")
+
 -- | Given a FilePath to a service file, will parse the service, generate the Haskell
 -- request and response types, and write these types to a directory. This requires
 -- knowing the Haskell names for the other messages in the current package
@@ -144,8 +147,11 @@ parseGenWriteMsg :: ByteString -> String -> [ByteString] -> FilePath -> MsgInfo 
 parseGenWriteMsg pkgHier destDir haskellPkgMsgNames msgFile = do
   parsedMsg <- liftIO $ parseErrorMsg pkgHier msgFile <$> parseMsg msgFile
   generatedMsg <- generateMsgType pkgHier haskellPkgMsgNames parsedMsg
+  generatedCoqMsg <- generateCoqMsgType pkgHier haskellPkgMsgNames parsedMsg
   let fname = dirAndNameToFile destDir $ shortName parsedMsg
-  liftIO $ B.writeFile fname generatedMsg
+  let fnameCoq = dirAndNameToCoqFile destDir $ shortName parsedMsg
+  _ <- liftIO $ B.writeFile fname generatedMsg
+  liftIO $ B.writeFile fnameCoq generatedCoqMsg
 
 -- | Generate Haskell implementations of all message definitions in
 -- the given package.
