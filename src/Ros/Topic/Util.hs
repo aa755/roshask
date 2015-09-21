@@ -172,6 +172,10 @@ infixl 7 <+>
 -- resulting 'Topic' will produce a new value at the rate of the
 -- faster component 'Topic', and may contain duplicate consecutive
 -- elements.
+-- what happens if there  is no newest available value for a topic,
+-- because nothing was received so far on that topic?
+-- experiments seem to suggest that no messages are sent until 
+-- both the topics receive at least one message.
 everyNew :: Topic IO a -> Topic IO b -> Topic IO (a,b)
 everyNew t1 t2 = Topic $ warmup =<< runTopic (t1 <+> t2)
   where warmup (Left x, t)     = warmupR x =<< runTopic t
