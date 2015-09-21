@@ -4,14 +4,14 @@
 -- via extraction.
 
 
-module Ros.ROSCoqUtil (nbind, nreturn, publishCoList, subscribeCoList, asapMergeCoList, advertiseNewChan, publishMsgOnChan, publishDelayedMsgOnChan, coFoldLeft, flattenTL, foldMapL) where
+module Ros.ROSCoqUtil (nbind, nreturn, publishCoList, subscribeCoList, asapMergeCoList, advertiseNewChan, publishMsgOnChan, publishDelayedMsgOnChan, coFoldLeft, flattenTL, foldMapL, delayMsgs) where
 import Ros.Topic.Util (fromList, toList)
 import Ros.Node
 import Ros.Internal.RosBinary (RosBinary)
 import Ros.Internal.Msg.MsgInfo
 import Data.Typeable.Internal
 import Control.Concurrent
-import Ros.Topic(metamorph, yield)
+import Ros.Topic(metamorph, yield, mapM)
 
 nreturn::a  -> Node a
 nreturn x = return x
@@ -39,6 +39,13 @@ flattenTL t = Topic $ do
     (x, t') <- runTopic t
     lcons x (flattenTL t')     
 
+-- | a is intended to be instantiated with Message from Coq. fdel pulls out the delay field.
+-- FIX!! either make the delay bounded in the Coq type signature, or use a loop to
+-- properly handle the case when the first argument is beyond the bounds of Int
+delayMsgs :: (a-> Prelude.Integer) -> Topic IO a -> Topic IO a
+delayMsgs fdel = Ros.Topic.mapM  (\xa -> do
+                threadDelay (Prelude.fromInteger (fdel xa))
+                return xa)
 
 foldMapL :: Monad m => s -> (s -> a -> (b , s)) -> Topic m a -> Topic m b
 foldMapL inits f = metamorph $ go inits
