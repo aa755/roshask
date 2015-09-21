@@ -94,6 +94,60 @@ generateMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=pkgP
           fieldIndent = B.replicate (B.length dataLine - 3) ' '
           lineSep = B.concat ["\n", fieldIndent, ", "]
 
+generateCoqMsgType :: ByteString -> [ByteString] -> Msg -> MsgInfo ByteString
+generateCoqMsgType pkgPath pkgMsgs =
+  generateMsgTypeExtraImport GenArgs {genExtraImport=""
+                                     , genPkgPath=pkgPath
+                                     , genPkgMsgs=pkgMsgs}
+
+-- <$> is the infix form of fmap : https://hackage.haskell.org/package/base-4.8.1.0/docs/Prelude.html#v:-60--36--62-
+generateCoqMsgTypeExtraImport :: GenArgs -> Msg -> MsgInfo ByteString
+generateCoqMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=pkgPath, genPkgMsgs=pkgMsgs}) msg =
+  do (fDecls, binInst, st, cons) <- withMsg msg $
+                                    (,,,) <$> mapM generateCoqField (fields msg)
+                                          <*> genBinaryInstance msg
+                                          <*> genStorableInstance msg
+                                          <*> genConstants msg
+     let fieldSpecs = B.intercalate lineSep fDecls
+         (storableImport, storableInstance) = st
+     --msgHash <- liftIO $ genHasHash msg
+     msgHash <- genHasHash msg
+     return $ B.concat [ modLine, "\n"
+                       , imports
+                       , storableImport
+                       , lensImport
+                       , if null fDecls -- does this need to be a special case in Coq?
+                         then dataSingleton
+                         else B.concat [ dataLine
+                                       , fieldSpecs
+                                       , "\n"
+                                       , fieldIndent
+                                       , "}"
+                                       , "\n\n"]
+                       , binInst, "\n\n"
+                       , storableInstance
+                       --, genNFDataInstance msg
+                       , genHasHeader msg
+                       , msgHash
+                       , genDefault msg
+                       , cons ]
+    where name = shortName msg
+          tName = pack $ toUpper (head name) : tail name
+          modLine = B.concat [ ]
+          imports = B.concat ["Require ROSCOQ.shim.Haskell.RoshaskMsg.\n",
+                              "Require String.\n",
+                              extraImport,
+                              genImports pkgPath pkgMsgs -- perhaps this is not needed for now?
+                                         (map fieldType (fields msg))]
+                              --nfImport]
+          dataLine = B.concat ["\nRecord ", tName, " :=  { "]
+          dataSingleton = B.concat ["\nInductive ", tName, " := ", tName,
+          -- FIX!! prepend something to the second tName.
+          -- In Coq, the name of a type cannot be the same as the name of any constructor
+                                    "\n\n"]
+          fieldIndent = B.replicate (B.length dataLine - 3) ' '
+          lineSep = B.concat ["\n", fieldIndent, "; "] -- seems to be the separator between fields
+
 genHasHeader :: Msg -> ByteString
 genHasHeader m = 
     if hasHeader m
@@ -124,6 +178,11 @@ genSrvInfo s m = fmap aux (srvMD5 s)
 generateField :: MsgField -> MsgInfo ByteString
 generateField (MsgField name t _) = do t' <- hType <$> getTypeInfo t
                                        return $ B.concat [name, " :: ", t']
+
+
+generateCoqField :: MsgField -> MsgInfo ByteString
+generateCoqField (MsgField name t _) = do t' <- hType <$> getTypeInfo t
+                                          return $ B.concat [name, " : ", t']
 
 genConstants :: Msg -> MsgInfo ByteString
 genConstants = fmap B.concat . mapM buildLine . constants
