@@ -105,8 +105,8 @@ generateCoqMsgTypeExtraImport :: GenArgs -> Msg -> MsgInfo ByteString
 generateCoqMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=pkgPath, genPkgMsgs=pkgMsgs}) msg =
   do (fDecls, binInst, st, cons) <- withMsg msg $
                                     (,,,) <$> mapM generateCoqField (fields msg)
-                                          <*> genBinaryInstance msg
-                                          <*> genStorableInstance msg
+                                          <*> genBinaryInstance msg --remove?
+                                          <*> genStorableInstance msg --remove?
                                           <*> genConstants msg
      let fieldSpecs = B.intercalate lineSep fDecls
          (storableImport, storableInstance) = st
@@ -116,23 +116,25 @@ generateCoqMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=p
                        , imports
                        , storableImport
                        , lensImport
-                       , if null fDecls -- does this need to be a special case in Coq?
-                         then dataSingleton
-                         else B.concat [ dataLine
+                       , -- Record hello := {}. works in Coq.
+                         B.concat [ dataLine
                                        , fieldSpecs
                                        , "\n"
                                        , fieldIndent
                                        , "}"
                                        , "\n\n"]
-                       , binInst, "\n\n"
-                       , storableInstance
+                       -- , binInst, "\n\n"
+                       -- storableInstance
                        --, genNFDataInstance msg
-                       , genHasHeader msg
-                       , msgHash
-                       , genDefault msg
+                       -- , genHasHeader msg
+                       -- , msgHash
+                       -- , genDefault msg
+                       , extractType
                        , cons ]
     where name = shortName msg
           tName = pack $ toUpper (head name) : tail name
+          qualName = B.concat [pkgPath, tName, ".", tName]
+          quoteName = \x -> B.concat ["\"", x, "\""]
           modLine = B.concat [ ]
           imports = B.concat ["Require ROSCOQ.shim.Haskell.RoshaskMsg.\n",
                               "Require String.\n",
@@ -141,10 +143,7 @@ generateCoqMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=p
                                          (map fieldType (fields msg))]
                               --nfImport]
           dataLine = B.concat ["\nRecord ", tName, " :=  { "]
-          dataSingleton = B.concat ["\nInductive ", tName, " := ", tName,
-          -- FIX!! prepend something to the second tName.
-          -- In Coq, the name of a type cannot be the same as the name of any constructor
-                                    "\n\n"]
+          extractType = B.concat ["Extract Inductive ", tName, "=> ", quoteName qualName, " [ ", quoteName qualName, " ].\n"]
           fieldIndent = B.replicate (B.length dataLine - 3) ' '
           lineSep = B.concat ["\n", fieldIndent, "; "] -- seems to be the separator between fields
 
