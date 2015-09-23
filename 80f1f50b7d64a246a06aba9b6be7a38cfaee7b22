@@ -1,0 +1,5 @@
+The following tool can perhaps solve the Haskell side of the problem of adding imports for ROS message types.
+We already refer to Haskell ROS message types in qualified manner.
+
+http://hackage.haskell.org/package/fix-imports
+found it from http://stackoverflow.com/a/6757986/391753
