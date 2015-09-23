@@ -143,6 +143,7 @@ generateCoqMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=p
                        , fieldsExtraction
                        , subscribeExt
                        , publishExt
+                       , msgTypeInst
                        --, cons
                        ]
     where name = shortName msg
