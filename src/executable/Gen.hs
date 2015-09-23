@@ -100,6 +100,15 @@ generateCoqMsgType pkgPath pkgMsgs =
                                      , genPkgPath=pkgPath
                                      , genPkgMsgs=pkgMsgs}
 
+quoteName :: ByteString -> ByteString
+quoteName x =  B.concat ["\"", x, "\""]
+
+subscribeExt :: ByteString
+subscribeExt = "Extract Constant  subscribe => \"(Ros.Node.subscribe)\".\n"
+
+publishExt :: ByteString
+publishExt = "Extract Constant  publish => \"(Ros.Node.advertise)\".\n"
+
 -- <$> is the infix form of fmap : https://hackage.haskell.org/package/base-4.8.1.0/docs/Prelude.html#v:-60--36--62-
 generateCoqMsgTypeExtraImport :: GenArgs -> Msg -> MsgInfo ByteString
 generateCoqMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=pkgPath, genPkgMsgs=pkgMsgs}) msg =
@@ -107,15 +116,16 @@ generateCoqMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=p
                                     (,,,) <$> mapM generateCoqField (fields msg)
                                           <*> genBinaryInstance msg --remove?
                                           <*> genStorableInstance msg --remove?
-                                          <*> genConstants msg
+                                          <*> genConstants msg -- FIX!! handle this. is this just an
+                                          -- avoidable convenience thing? it this needed for something that ROS does?
      let fieldSpecs = B.intercalate lineSep fDecls
          (storableImport, storableInstance) = st
      --msgHash <- liftIO $ genHasHash msg
      msgHash <- genHasHash msg
      return $ B.concat [ modLine, "\n"
                        , imports
-                       , storableImport
-                       , lensImport
+                       -- , storableImport
+                       -- , lensImport
                        , -- Record hello := {}. works in Coq.
                          B.concat [ dataLine
                                        , fieldSpecs
@@ -130,20 +140,33 @@ generateCoqMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=p
                        -- , msgHash
                        -- , genDefault msg
                        , extractType
-                       , cons ]
+                       , fieldsExtraction
+                       , subscribeExt
+                       , publishExt
+                       --, cons
+                       ]
     where name = shortName msg
+          fieldsExtraction = B.concat (map (coqFieldExtraction thisPkgQualName) (fields msg))
           tName = pack $ toUpper (head name) : tail name
-          qualName = B.concat [pkgPath, tName, ".", tName]
-          quoteName = \x -> B.concat ["\"", x, "\""]
+          thisPkgQualName = B.concat [pkgPath, tName]
+          qualName = B.concat [thisPkgQualName, ".", tName]
           modLine = B.concat [ ]
-          imports = B.concat ["Require ROSCOQ.shim.Haskell.RoshaskMsg.\n",
+          imports = B.concat ["Extraction Language Haskell.\n",
+                              "Require ROSCOQ.shim.Haskell.RoshaskNodeMonad.\n",
+                              "Require ROSCOQ.shim.Haskell.RoshaskTopic.\n",
+                              "Require ROSCOQ.shim.Haskell.RoshaskMsg.\n",
+                              "Require ROSCOQ.shim.Haskell.RoshaskTypes.\n",
                               "Require String.\n",
                               extraImport,
                               genImports pkgPath pkgMsgs -- perhaps this is not needed for now?
                                          (map fieldType (fields msg))]
                               --nfImport]
           dataLine = B.concat ["\nRecord ", tName, " :=  { "]
-          extractType = B.concat ["Extract Inductive ", tName, "=> ", quoteName qualName, " [ ", quoteName qualName, " ].\n"]
+          extractType = B.concat ["Extract Inductive ", tName, " => ", quoteName qualName, " [ ", quoteName qualName, " ].\n"]
+          subscribe = B.concat ["Axiom subscribe : TopicName -> Node (RTopic " , tName ," ).\n"]
+          publish = B.concat ["Axiom publish : TopicName -> RTopic ", tName , " -> Node unit.\n"]
+          msgTypeInst = B.concat ["Instance ROSMsgInstance : ROSMsgType ", tName , " :=\n"
+                                   ,"Build_ROSMsgType _  subscribe  publish.\n"]
           fieldIndent = B.replicate (B.length dataLine - 3) ' '
           lineSep = B.concat ["\n", fieldIndent, "; "] -- seems to be the separator between fields
 
@@ -182,6 +205,11 @@ generateField (MsgField name t _) = do t' <- hType <$> getTypeInfo t
 generateCoqField :: MsgField -> MsgInfo ByteString
 generateCoqField (MsgField name t _) = do t' <- hType <$> getTypeInfo t
                                           return $ B.concat [name, " : ", t']
+
+coqFieldExtraction :: ByteString -> MsgField  -> ByteString
+coqFieldExtraction thisPkgQualName (MsgField name t _) =
+    let hname = quoteName (B.concat [thisPkgQualName,".",name]) in
+            B.concat ["Extract Constant ", name, " => ", hname, " .\n"]
 
 genConstants :: Msg -> MsgInfo ByteString
 genConstants = fmap B.concat . mapM buildLine . constants
