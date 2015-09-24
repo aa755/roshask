@@ -1,0 +1,24 @@
+abhishek@abhishek-new:~/.cabal/share/x86_64-linux-ghc-7.6.3/roshask-0.3/Geometry_msgs/Ros/Geometry_msgs$ cat Vector3.v
+
+Extraction Language Haskell.
+Require Import ROSCOQ.shim.Haskell.RoshaskNodeMonad.
+Require Import ROSCOQ.shim.Haskell.RoshaskTopic.
+Require Import ROSCOQ.shim.Haskell.RoshaskMsg.
+Require Import ROSCOQ.shim.Haskell.RoshaskTypes.
+Require Import String.
+
+Record Vector3 :=  { _x : RoshaskFloat
+                   ; _y : RoshaskFloat
+                   ; _z : RoshaskFloat
+                   }.
+
+Extract Inductive Vector3 => "Ros.Geometry_msgs.Vector3.Vector3" [ "Ros.Geometry_msgs.Vector3.Vector3" ].
+Extract Constant _x => "Ros.Geometry_msgs.Vector3._x" .
+Extract Constant _y => "Ros.Geometry_msgs.Vector3._y" .
+Extract Constant _z => "Ros.Geometry_msgs.Vector3._z" .
+Axiom subscribe : TopicName -> Node (RTopic Vector3 ).
+Extract Constant  subscribe => "(Ros.Node.subscribe)".
+Axiom publish : TopicName -> RTopic Vector3 -> Node unit.
+Extract Constant  publish => "(Ros.Node.advertise)".
+Instance ROSMsgInstance : ROSMsgType Vector3 :=
+Build_ROSMsgType _  subscribe  publish.
