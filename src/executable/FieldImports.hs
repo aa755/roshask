@@ -2,7 +2,7 @@
 -- | Analyze a MsgType to determine the module imports needed for the
 -- message field types.
 module FieldImports (genImports, genImportsCoq) where
-import Data.ByteString.Char8 (ByteString)
+import Data.ByteString.Char8 (ByteString, isPrefixOf, split)
 import qualified Data.ByteString.Char8 as B
 import Data.Char (toUpper)
 import Data.List (foldl')
@@ -18,11 +18,15 @@ genImports pkgPath pkgMsgs fieldTypes =
           allImports = foldl' ((. getDeps) . flip S.union) S.empty
 
 fixImportForCoq :: ByteString -> ByteString
-fixImportForCoq x = x -- x is the import command excluding the inition "import" part. it may also begin with "qualified"
+fixImportForCoq x  -- x is the import command excluding the inition "import" part. it may also begin with "qualified"
+       | isPrefixOf "qualified" x = head (tail (split ' ' x)) -- get rid of "qualified" and "as .."
+       -- because the input was programmitically generated, and does not come from human, we dont need
+       -- to worry about unconventional style such as cases like '\n' for ' '
+       | otherwise = x
 
 genImportsCoq :: ByteString -> [ByteString] -> [MsgType] -> ByteString
 genImportsCoq pkgPath pkgMsgs fieldTypes =
-    B.concat $ concatMap (\i -> ["import ", fixImportForCoq i, "\n"])
+    B.concat $ concatMap (\i -> ["Require Import ", fixImportForCoq i, ".\n"])
                          (S.toList (allImports fieldTypes))
     where getDeps = typeDependency pkgPath pkgMsgs
           allImports = foldl' ((. getDeps) . flip S.union) S.empty
