@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- | Analyze a MsgType to determine the module imports needed for the
 -- message field types.
-module FieldImports (genImports) where
+module FieldImports (genImports, genImportsCoq) where
 import Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as B
 import Data.Char (toUpper)
@@ -13,6 +13,16 @@ import Types
 genImports :: ByteString -> [ByteString] -> [MsgType] -> ByteString
 genImports pkgPath pkgMsgs fieldTypes = 
     B.concat $ concatMap (\i -> ["import ", i, "\n"])
+                         (S.toList (allImports fieldTypes))
+    where getDeps = typeDependency pkgPath pkgMsgs
+          allImports = foldl' ((. getDeps) . flip S.union) S.empty
+
+fixImportForCoq :: ByteString -> ByteString
+fixImportForCoq x = x -- x is the import command excluding the inition "import" part. it may also begin with "qualified"
+
+genImportsCoq :: ByteString -> [ByteString] -> [MsgType] -> ByteString
+genImportsCoq pkgPath pkgMsgs fieldTypes =
+    B.concat $ concatMap (\i -> ["import ", fixImportForCoq i, "\n"])
                          (S.toList (allImports fieldTypes))
     where getDeps = typeDependency pkgPath pkgMsgs
           allImports = foldl' ((. getDeps) . flip S.union) S.empty

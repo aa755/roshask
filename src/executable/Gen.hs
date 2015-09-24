@@ -131,7 +131,7 @@ generateCoqMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=p
                                        , fieldSpecs
                                        , "\n"
                                        , fieldIndent
-                                       , "}"
+                                       , "}."
                                        , "\n\n"]
                        -- , binInst, "\n\n"
                        -- storableInstance
@@ -141,7 +141,9 @@ generateCoqMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=p
                        -- , genDefault msg
                        , extractType
                        , fieldsExtraction
+                       , subscribe
                        , subscribeExt
+                       , publish
                        , publishExt
                        , msgTypeInst
                        --, cons
@@ -153,14 +155,14 @@ generateCoqMsgTypeExtraImport (GenArgs {genExtraImport=extraImport, genPkgPath=p
           qualName = B.concat [thisPkgQualName, ".", tName]
           modLine = B.concat [ ]
           imports = B.concat ["Extraction Language Haskell.\n",
-                              "Require ROSCOQ.shim.Haskell.RoshaskNodeMonad.\n",
-                              "Require ROSCOQ.shim.Haskell.RoshaskTopic.\n",
-                              "Require ROSCOQ.shim.Haskell.RoshaskMsg.\n",
-                              "Require ROSCOQ.shim.Haskell.RoshaskTypes.\n",
-                              "Require String.\n",
+                              "Require Import ROSCOQ.shim.Haskell.RoshaskNodeMonad.\n",
+                              "Require Import ROSCOQ.shim.Haskell.RoshaskTopic.\n",
+                              "Require Import ROSCOQ.shim.Haskell.RoshaskMsg.\n",
+                              "Require Import ROSCOQ.shim.Haskell.RoshaskTypes.\n",
+                              "Require Import String.\n",
                               extraImport,
-                              genImports pkgPath pkgMsgs -- perhaps this is not needed for now?
-                                         (map fieldType (fields msg))]
+                              genImportsCoq pkgPath pkgMsgs -- perhaps this is not needed for now?
+                                            (map fieldType (fields msg))]
                               --nfImport]
           dataLine = B.concat ["\nRecord ", tName, " :=  { "]
           extractType = B.concat ["Extract Inductive ", tName, " => ", quoteName qualName, " [ ", quoteName qualName, " ].\n"]
@@ -202,10 +204,15 @@ generateField :: MsgField -> MsgInfo ByteString
 generateField (MsgField name t _) = do t' <- hType <$> getTypeInfo t
                                        return $ B.concat [name, " :: ", t']
 
+-- primitive Haskell types have to be remapped to the corresponding Coq types
+haskell2CoqType :: ByteString -> ByteString
+haskell2CoqType s
+        |  s=="P.Double" = "RoshaskFloat" -- is the name P and invariant?
+        |  otherwise = s
 
 generateCoqField :: MsgField -> MsgInfo ByteString
 generateCoqField (MsgField name t _) = do t' <- hType <$> getTypeInfo t
-                                          return $ B.concat [name, " : ", t']
+                                          return $ B.concat [name, " : ", haskell2CoqType t']
 
 coqFieldExtraction :: ByteString -> MsgField  -> ByteString
 coqFieldExtraction thisPkgQualName (MsgField name t _) =
