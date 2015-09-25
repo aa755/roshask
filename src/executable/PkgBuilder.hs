@@ -22,13 +22,14 @@ import Types (requestResponseNames, shortName)
 import Paths_roshask (version, getBinDir)
 
 import Ros.Internal.DepFinder (findMessages, findDepsWithMessages, hasMsgsOrSrvs, findServices)
-import Ros.Internal.PathUtil (codeGenDir, cap)
+import Ros.Internal.PathUtil (codeGenDir, cap, sconsGenDir)
 import System.Directory (createDirectoryIfMissing, getDirectoryContents,
                          doesDirectoryExist, removeFile)
 import System.Exit (ExitCode(..))
 import System.FilePath
 import System.IO (hGetContents, hClose)
 import System.Process (createProcess, proc, CreateProcess(..), waitForProcess, StdStream(CreatePipe))
+import System.Environment
 
 -- | Determine if we are working in a sandbox by checking of roshask
 -- was installed in one. If so, return the immediate parent of the
@@ -159,13 +160,16 @@ buildNewPkgMsgs :: ToolPaths -> FilePath -> MsgInfo ()
 buildNewPkgMsgs tools fname =
   do liftIO . putStrLn $ "Generating package " ++ fname
      destDir <- liftIO $ codeGenDir fname
+     sconsDir <- liftIO $ sconsGenDir fname
      liftIO $ createDirectoryIfMissing True destDir
      pkgMsgs <- liftIO $ findMessages fname
      pkgSrvs <- liftIO $ findServices fname
+     sconstruct <- liftIO $ genCoqSConstruct
      let haskellMsgNames = map (B.pack . cap . dropExtension . takeFileName) pkgMsgs
      mapM_ (parseGenWriteMsg pkgHier destDir haskellMsgNames) pkgMsgs
      mapM_ (parseGenWriteService pkgHier destDir haskellMsgNames) pkgSrvs
      liftIO $ do f <- hasMsgsOrSrvs fname
+                 _ <- B.writeFile  (sconsDir </> "SConstruct") sconstruct
                  when f (removeOldCabal fname >> compileMsgs)
     where pkgName = pathToRosPkg fname
           pkgHier = B.pack $ "Ros." ++ cap pkgName ++ "."
@@ -259,3 +263,59 @@ format fields = B.concat $ map indent fields
   where indent (k,v) = let spaces = flip B.replicate ' ' $ 
                                     21 - B.length k - 1
                        in B.concat [k,":",spaces,v,"\n"]
+
+
+genCoqSConstructAux :: ByteString  ->  ByteString
+genCoqSConstructAux rs =
+    B.concat [
+    "# usage : scons --site-dir ~/ROSCoq/site_scons/ -k\n" ,
+    "import os, glob, string\n" ,
+    "\n" ,
+    "dirs_to_compile = ['Ros']\n" ,
+    "\n" ,
+    "nodes = map(lambda x: './' + x, dirs_to_compile)\n" ,
+    "dirs = []\n" ,
+    "vs = []\n" ,
+    "\n" ,
+    "env = DefaultEnvironment(ENV = os.environ, tools=['default','Coq'])\n" ,
+    "\n" ,
+    "while nodes:\n" ,
+    "  node = nodes.pop()\n" ,
+    "  b = os.path.basename(node)\n" ,
+    "  if node.endswith('.v'):\n" ,
+    "    vs += [File(node)]\n" ,
+    "  if os.path.isdir(node):\n" ,
+    "    dirs += [node]\n" ,
+    "    nodes += glob.glob(node + '/*')\n" ,
+    "\n" ,
+    "includes = ' '.join(map(lambda x: '-I ' + x, dirs[1:]))\n" ,
+    "\n" ,
+    "Rs = '", rs, "'\n",
+    "coqcmd = 'coqc ${str(SOURCE)[:-2]} ' + Rs\n" ,
+    "\n" ,
+    "env['COQFLAGS'] = Rs\n" ,
+    "\n" ,
+    "for node in vs: env.Coq(node, COQCMD=coqcmd)\n" ,
+    "\n" ,
+    "\n" ,
+    "os.system('coqdep ' + ' '.join(map(str, vs)) + ' ' + includes + ' ' + Rs + ' > deps')\n" ,
+    "ParseDepends('deps')\n"
+        ]
+
+
+genRInclude:: (Maybe String) ->ByteString -> ByteString
+genRInclude (Just x) l = B.concat [" -R ", B.pack x, " ", l]
+genRInclude Nothing _ = B.concat []
+
+
+genRFromEnv :: String -> IO ByteString
+genRFromEnv logiPath = do
+    physPath <- lookupEnv (concat ["COQ_", logiPath, "_PHYSICAL"])
+    return $ genRInclude physPath (B.pack logiPath)
+
+genCoqSConstruct :: IO  ByteString
+genCoqSConstruct = do
+    roscoq <- genRFromEnv "ROSCOQ"
+    corn <- genRFromEnv "CoRN"
+    mc <- genRFromEnv "MathClasses"
+    return $ genCoqSConstructAux (B.concat ["-R Ros Ros",roscoq, corn, mc])

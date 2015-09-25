@@ -45,3 +45,14 @@ codeGenDir f = do s <- stackName f
                                Just s' -> r </> s'
                   return $ base </> pkg </> "Ros" </> pkg
   where pkg = pathToPkgName f
+
+  -- |Given a path to a msg definition file, compute a destination
+-- directory for the SConstruct file used for compiling gen. Coq Files
+sconsGenDir :: FilePath -> IO FilePath
+sconsGenDir f = do s <- stackName f
+                   r <- getDataDir
+                   let base = case s of
+                               Nothing -> r
+                               Just s' -> r </> s'
+                   return $ base </> pkg
+  where pkg = pathToPkgName f
