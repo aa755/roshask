@@ -28,7 +28,7 @@ import System.Directory (createDirectoryIfMissing, getDirectoryContents,
 import System.Exit (ExitCode(..))
 import System.FilePath
 import System.IO (hGetContents, hClose)
-import System.Process (createProcess, proc, CreateProcess(..), waitForProcess, StdStream(CreatePipe))
+import System.Process (createProcess, proc, CreateProcess(..), waitForProcess, StdStream(CreatePipe), shell)
 import System.Environment
 
 -- | Determine if we are working in a sandbox by checking of roshask
@@ -170,7 +170,8 @@ buildNewPkgMsgs tools fname =
      mapM_ (parseGenWriteService pkgHier destDir haskellMsgNames) pkgSrvs
      liftIO $ do f <- hasMsgsOrSrvs fname
                  _ <- B.writeFile  (sconsDir </> "SConstruct") sconstruct
-                 when f (removeOldCabal fname >> compileMsgs)
+                 _ <- when f (removeOldCabal fname >> compileMsgs)
+                 compileMsgsCoq sconsDir
     where pkgName = pathToRosPkg fname
           pkgHier = B.pack $ "Ros." ++ cap pkgName ++ "."
           compileMsgs = do cpath <- genMsgCabal fname pkgName
@@ -180,6 +181,14 @@ buildNewPkgMsgs tools fname =
                            when (code /= ExitSuccess)
                                 (error $ "Building messages for "++
                                          pkgName++" failed")
+          compileMsgsCoq sconsDir = do
+                               (_,_,_,procH) <- createProcess $
+                                 shell  $  concat ["cd ", sconsDir , "; scons --site-dir ${COQ_ROSCOQ_PHYSICAL}/../site_scons/ -k"]
+                               _ <- waitForProcess procH
+                               return ()
+                               --when (code /= ExitSuccess)
+                               --     (error $ "Building messages for "++
+                               --              pkgName++" failed")
 
 -- |Convert a ROS package name to the corresponding Cabal package name
 -- defining the ROS package's msg types.
