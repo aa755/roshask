@@ -170,6 +170,7 @@ buildNewPkgMsgs tools fname =
      mapM_ (parseGenWriteService pkgHier destDir haskellMsgNames) pkgSrvs
      liftIO $ do f <- hasMsgsOrSrvs fname
                  _ <- B.writeFile  (sconsDir </> "SConstruct") sconstruct
+                 _ <-  putStrLn $ concat ["Coq LoadPath : -R ", sconsDir, "/Ros Ros"]
                  _ <- when f (removeOldCabal fname >> compileMsgs)
                  compileMsgsCoq sconsDir
     where pkgName = pathToRosPkg fname
